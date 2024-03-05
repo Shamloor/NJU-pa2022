@@ -54,7 +54,7 @@ static int cmd_q(char *args) {
 }
 
 static int cmd_si(char *args) {
-	if (args == NULL) {
+	if (!args) {
 		cpu_exec(1);
 	}
 	int count = atoi(args);	
