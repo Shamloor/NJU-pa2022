@@ -17,6 +17,7 @@
 #include <cpu/cpu.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <stdlib.h>
 #include "sdb.h"
 
 static int is_batch_mode = false;
@@ -45,12 +46,20 @@ static char* rl_gets() {
 static int cmd_c(char *args) {
   cpu_exec(-1);
   return 0;
-}
-
+ }
 
 static int cmd_q(char *args) {
 	nemu_state.state = NEMU_QUIT;	
   return -1;
+}
+
+static int cmd_si(char *args) {
+	if (args == NULL) {
+		cpu_exec(1);
+	}
+	int count = atoi(args);	
+	cpu_exec(count);	
+	return 0;
 }
 
 static int cmd_help(char *args);
@@ -63,7 +72,7 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
+	{ "si", "Single step excution for N times", cmd_si},
   /* TODO: Add more commands */
 
 };
