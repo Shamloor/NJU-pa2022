@@ -65,11 +65,14 @@ static int cmd_si(char *args) {
 }
 
 static int cmd_info(char *args) {
-  if (!strcmp(args, "r")) {
-		isa_reg_display();
+	if(args) {
+		if (!strcmp(args, "r")) {
+			isa_reg_display();
+			return 0;
+		}
+		printf("Not finished.");
 		return 0;
-  }
-	printf("Not finished.");
+	}
 	return 0;
 }
 static int cmd_help(char *args);
