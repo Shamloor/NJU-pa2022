@@ -22,7 +22,7 @@
 
 enum {
   TK_NOTYPE = 256, TK_EQ,
-
+	TK_DINT, TK_LBR, TK_RBR,
   /* TODO: Add more token types */
 
 };
@@ -35,10 +35,16 @@ static struct rule {
   /* TODO: Add more rules.
    * Pay attention to the precedence level of different rules.
    */
-
+	{"\\d+", TK_DINT},			// decimal integer	
   {" +", TK_NOTYPE},    // spaces
-  {"\\+", '+'},         // plus
+  {"\\+", '+'},         // add
+	{"\\-", '-'},					// sub
+	{"\\*", '*'},					// mul
+	{"\\/", '/'},					//div
   {"==", TK_EQ},        // equal
+	{"\\(", TK_LBR},				// left bra
+	{"\\)", TK_RBR},				// right bra	
+	
 };
 
 #define NR_REGEX ARRLEN(rules)
@@ -95,11 +101,23 @@ static bool make_token(char *e) {
          */
 
         switch (rules[i].token_type) {
-          default: TODO();
+					case '+': 
+					case '-':
+					case '*':
+					case '/':
+					case TK_EQ:
+					case TK_LBR:
+					case TK_RBR:
+						tokens[i].type = rules[i].token_type;
+						break;
+					case TK_DINT:
+						tokens[i].type = rules[i].token_type;
+						strncpy(tokens[i].str, substr_start, 32);
+						break;
         }
-
+				nr_token += 1;
         break;
-      }
+			} 
     }
 
     if (i == NR_REGEX) {
