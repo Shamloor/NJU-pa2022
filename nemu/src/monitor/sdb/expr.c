@@ -141,3 +141,44 @@ word_t expr(char *e, bool *success) {
 
   return 0;
 }
+
+static bool check_parentheses(int p, int q) {
+	if (tokens[p].type != TK_LBR || 
+			tokens[q].type != TK_RBR) {
+		return false;
+	}
+
+	int i = 0;
+	for (; p <= q; p ++) {
+		if (tokens[p].type == TK_LBR) {
+			i += 1;
+		} else if (tokens[p].type == TK_RBR) {
+			i -= 1;
+		}
+		
+		if (i == 0 && p != q) {
+			assert(0);
+			return false;
+		}
+	}
+	return true;
+}
+
+static word_t priop(int p, int q) {
+
+}
+
+static word_t eval(int p, int q) {
+	if (p > q) {
+		assert(0);
+	} 
+	else if (p == q) {
+		return atoi(tokens[p].str);
+	} 
+	else if (check_parentheses(p, q)) {
+		return eval(p + 1, q - 1);
+	}
+	else {
+
+	}
+}
