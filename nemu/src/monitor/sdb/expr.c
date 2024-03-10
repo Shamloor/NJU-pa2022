@@ -149,14 +149,18 @@ static bool check_parentheses(int p, int q) {
 	}
 
 	int i = 0;
-	for (; p <= q; p ++) {
-		if (tokens[p].type == TK_LBR) {
-			i += 1;
-		} else if (tokens[p].type == TK_RBR) {
-			i -= 1;
+	int check = 0;
+
+	for (i = p; p <= q; i ++) {
+		if (tokens[i].type == TK_LBR) {
+			check += 1;
+		} 
+		else if (tokens[i].type == TK_RBR) {
+			check -= 1;
 		}
 		
-		if (i == 0 && p != q) {
+		if ((check < 0) || (i == q && check != 0)) {
+			printf("The bracket format is wrong, please check.");
 			assert(0);
 			return false;
 		}
@@ -164,12 +168,44 @@ static bool check_parentheses(int p, int q) {
 	return true;
 }
 
+ststic char* change_to_negative(char *str1) {
+	char str2[32] = "-";
+	strcpy(str2 + 1, str1);
+	return str2;
+}
 
-static word_t priop(int p, int q) {
+// assuming pos type is '-',
+// check negtive number, when pos is 0, stop.
+// when there are '+' before last operator, change it.
+// both situations will change 
+static bool check_change_negative(int pos) {
+	// the start character
+	if (pos == 0) {
+		strcpy(tokens[pos + 1].str, 
+				change_to_negative(tokens[pos + 1].str));
+		return true;
+	}
+	int lstype = tokens[pos - 1].type;
+	if (lstype == '+' || lstype == '-' || lstype == '*'
+		|| lstype == '/') {
+		// when sucess, just consider there are one digit after it.
+		strcpy(tokens[pos + 1].str, 
+				change_to_negative(tokens[pos + 1].str));
+		
+
+		return true;
+	} 
+	else if (lstype == TK_LBR) {
+		return check_change_negative(pos - 1);
+	} 
+	return false;
+}
+
+static int priop(int p, int q) {
 	// variable checking whether be in bracket.	
 	int check = 0;
 	// varuable representing primary position.
-	word_t pr_pos = 0;
+	int pr_pos = 0;
 
 	// for loop searching
 	for (int i = p; i <= q; i ++) {
@@ -186,9 +222,12 @@ static word_t priop(int p, int q) {
 		else if (itype == TK_RBR) {
 			check -= 1;
 		}
+		
+
 		// if is operator type
-		else if ((itype == '+' || itype == '-' || 
-					itype == '*' || itype == '/') && check == 0) {
+		else if ((itype == '+' || (itype == '-' 
+			&& !check_change_negative(i)) || 
+			itype == '*' || itype == '/') && check == 0) {
 			// initial assignment
 			if (pr_pos == 0) {
 				pr_pos = i;
@@ -205,12 +244,13 @@ static word_t priop(int p, int q) {
 						|| (pcond2 && icond1)) {
 					pr_pos = i;
 				}
+			}
 		}
 	}	
 	return pr_pos;
 }
 
-static word_t eval(int p, int q) {
+static int eval(int p, int q) {
 	if (p > q) {
 		assert(0);
 	} 
@@ -221,6 +261,17 @@ static word_t eval(int p, int q) {
 		return eval(p + 1, q - 1);
 	}
 	else {
+		int op = priop(p, q);
+		int val1 = eval(p, op - 1);
+		int val2 = eval(op + 1, q);
 
+		// combination
+		swtich(tokens[op].type) {
+			case '+': return val1 + val2;
+			case '-': return val1 - val2;
+			case '*': return val1 * val2;
+			case '/': return val1 / val2;
+			default: assert(0);
+		}
 	}
 }
