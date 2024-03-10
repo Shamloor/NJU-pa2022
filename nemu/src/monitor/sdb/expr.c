@@ -164,8 +164,50 @@ static bool check_parentheses(int p, int q) {
 	return true;
 }
 
-static word_t priop(int p, int q) {
 
+static word_t priop(int p, int q) {
+	// variable checking whether be in bracket.	
+	int check = 0;
+	// varuable representing primary position.
+	word_t pr_pos = 0;
+
+	// for loop searching
+	for (int i = p; i <= q; i ++) {
+		// pre extract
+		int itype = tokens[i].type;
+		if (pr_pos != 0) {
+			int ptype = tokens[pr_pos];
+		}
+
+		// for bracket
+		if (itype == TK_LBR) {
+			check += 1;
+		}
+		else if (itype == TK_RBR) {
+			check -= 1;
+		}
+		// if is operator type
+		else if ((itype == '+' || itype == '-' || 
+					itype == '*' || itype == '/') && check == 0) {
+			// initial assignment
+			if (pr_pos == 0) {
+				pr_pos = i;
+			}
+			// compare ptype and itype
+			else {
+				// pre assignment
+				bool pcond1 = (ptype == '+' || ptype == '-');
+				bool pcond2 = (ptype == '*' || ptype == '/');
+				bool icond1 = (itype == '+' || itype == '-');
+				bool icond2 = (itype == '/' || itype == '*');
+				
+				if ((pcond1 && icond1) || (pcond2 && icond2) 
+						|| (pcond2 && icond1)) {
+					pr_pos = i;
+				}
+		}
+	}	
+	return pr_pos;
 }
 
 static word_t eval(int p, int q) {
