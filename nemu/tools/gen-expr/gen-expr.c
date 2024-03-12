@@ -19,6 +19,7 @@
 #include <time.h>
 #include <assert.h>
 #include <string.h>
+#include <stdbool.h>
 
 // this should be enough
 static char buf[65536] = {};
@@ -39,7 +40,13 @@ static uint32_t choose(uint32_t n) {
 
 //check division before zero, can just exclude literal division.
 static bool check_legal_zero() {
-	int pos = strlen(buf) - 1;
+	int pos;
+	if (strlen(buf) != 0) {
+		// when zero appears, there is a NULL value behind.
+		printf("The length is %d\n", strlen(buf));
+		pos = strlen(buf) - 1;
+		printf("The pos value is %d\n", pos);
+	} else return true;
 
 	if (buf[pos] == '/') {
 		return false;
@@ -50,7 +57,7 @@ static bool check_legal_zero() {
 }
 
 static void gen_num() {
-	char *tmp = {};
+	char tmp[100] = {};
 	int digit = rand() % 100;
 	if (digit == 0) {
 		if(!check_legal_zero()) {
@@ -67,9 +74,7 @@ static void gen(char *str) {
 }
 
 static void gen_rand_op() {
-	if (strlen(buf) > 65500) {
-		return;
-	}
+	
 	switch(choose(4)) {
 		case 0: gen("+"); break;
 		case 1: gen("-"); break;
@@ -79,12 +84,21 @@ static void gen_rand_op() {
 }
 
 static void gen_rand_expr() {
-	if (buf)
 	switch(choose(4)) {
 		case 0: gen_num(); break;
-		case 1: gen("("); gen_rand_expr(); gen(")"); break;
+		case 1: 
+			gen("(");
+			gen_rand_expr(); 
+			gen(")"); 
+			//if (strlen(buf) > 60000) return; 
+			break;
 		case 2: gen(" ");
-		default: gen_rand_expr(); gen_rand_op(); gen_rand_expr(); break;	
+		default: 
+			gen_rand_expr(); 
+			gen_rand_op(); 
+			gen_rand_expr(); 
+			//if (strlen(buf) > 60000) return;
+			break;	
 	}
 }
 
