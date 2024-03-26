@@ -78,7 +78,7 @@ static int cmd_info(char *args) {
 
 static int cmd_p(char *args) {
 	init_regex();
-		
+	return 0;	
 }
 
 static int cmd_help(char *args);

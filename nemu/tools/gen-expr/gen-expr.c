@@ -21,9 +21,8 @@
 #include <string.h>
 #include <stdbool.h>
 
-// this should be enough
 static char buf[65536] = {};
-static char code_buf[65536 + 128] = {}; // a little larger than `buf`
+static char code_buf[65536 + 128] = {};
 static char *code_format =
 "#include <stdio.h>\n"
 "int main() { "
@@ -32,87 +31,140 @@ static char *code_format =
 "  return 0; "
 "}";
 
-static uint32_t choose(uint32_t n) {
-	/* to generate a 
-	 * different rand number in one second. */
-	return rand() % n;
-} 
 
-//check division before zero, can just exclude literal division.
-static bool check_legal_zero() {
-	int pos;
-	if (strlen(buf) != 0) {
-		// when zero appears, there is a NULL value behind.
-		printf("The length is %d\n", strlen(buf));
-		pos = strlen(buf) - 1;
-		printf("The pos value is %d\n", pos);
-	} else return true;
-
-	if (buf[pos] == '/') {
-		return false;
-	} else if (buf[pos] == ' ') {
-		return check_legal_zero();
-	}
-	return true;
+static int choose(int limit) {
+	return rand() % limit;
 }
 
 static void gen_num() {
-	char tmp[100] = {};
-	int digit = rand() % 100;
-	if (digit == 0) {
-		if(!check_legal_zero()) {
-			gen_num();
-			return;
-		}
+	char str[10];
+	int digit = rand() % 20;
+	sprintf(str, "%d", digit);
+	if (strlen(buf) > 60000) {
+		return;
 	}
-	sprintf(tmp, "%d", digit);
-	strcat(buf, tmp);
-}
-
-static void gen(char *str) {
 	strcat(buf, str);
 }
 
+static void gen(char str) {
+	char nstr[2];
+	nstr[0] = str; nstr[1] = '\0';
+	strcat(buf, nstr);
+}
+
 static void gen_rand_op() {
-	
 	switch(choose(4)) {
-		case 0: gen("+"); break;
-		case 1: gen("-"); break;
-		case 2: gen("*"); break;
-		default: gen("/"); break;
+		case 0: gen('+'); break;
+		case 1: gen('-'); break;
+		case 2: gen('*'); break;
+		default: gen('/'); break;
 	}
 }
 
-static void gen_rand_expr() {
-	switch(choose(4)) {
-		case 0: gen_num(); break;
-		case 1: 
-			gen("(");
-			gen_rand_expr(); 
-			gen(")"); 
-			//if (strlen(buf) > 60000) return; 
-			break;
-		case 2: gen(" ");
+static void gen_rand_expr(int depth) {
+	if (depth > 10) {
+		gen('('); gen_num(); gen(')');
+		return;
+	}
+
+	switch(choose(3)) {
+		case 0: gen(' '); gen_num();gen(' '); break;
+		case 1: gen('('); gen_rand_expr(depth + 1); gen(')'); break;
 		default: 
-			gen_rand_expr(); 
+			gen_rand_expr(depth + 1); 
 			gen_rand_op(); 
-			gen_rand_expr(); 
-			//if (strlen(buf) > 60000) return;
-			break;	
+			gen_rand_expr(depth + 1); break;	
 	}
 }
+
+// Tested.
+static int find_expre(int start) {
+	int check = 0;
+	for (int i = start;; i ++) {
+		if (buf[i] == '(') {
+			check += 1;
+		}
+		else if (buf[i] == ')') {
+			check -= 1;
+			if (check == 0) {
+				return i;
+			} 
+			else if (check == -1) {
+				return i - 1;
+			}
+		}
+		else if (check == 0) {
+			if (buf[i] == '+' || buf[i] == '-' 
+				|| buf[i] == '*' || buf[i] == '/') {
+				return i - 1;
+			} 
+		}
+	}
+	assert(0);
+	return 0;
+}
+// Tested.
+static int calc_substr(char *str) {
+	sprintf(code_buf, code_format, str);
+	
+	FILE *tfp = fopen("/tmp/.check.c", "w");
+	assert(tfp != NULL);
+	fputs(code_buf, tfp);
+	fclose(tfp);
+
+	int ret = system("gcc /tmp/.check.c -o /tmp/.calc");
+	assert(ret == 0);
+
+	tfp = popen("/tmp/.calc", "r");
+	assert(tfp != NULL);
+
+	int result;
+	fscanf(tfp, "%d", &result);
+	pclose(tfp);
+
+	return result;
+}
+
+// Tested.
+static int clear_zero() {
+	for (int i = strlen(buf) - 1; i >= 0; i --) {
+		if (buf[i] == '/') {
+			int len = find_expre(i + 1) - i;
+			
+			char nstr[len + 1];
+			strncpy(nstr, buf + i + 1, len);
+			nstr[len] = '\0';
+			
+			int result = calc_substr(nstr);
+			if (result == 0) {
+				return 1;
+			}
+		}
+	}
+	return 0;
+} 
 
 int main(int argc, char *argv[]) {
-  int seed = time(0);
+  int seed = time(NULL);
   srand(seed);
+
   int loop = 1;
   if (argc > 1) {
-		// read from argv[1] to loop variable.
     sscanf(argv[1], "%d", &loop);
   }
+
   int i;
   for (i = 0; i < loop; i ++) {
-    gen_rand_expr();
+		// clear char array.
+		strcpy(buf, "");
+
+    gen_rand_expr(0);
+	
+		// prevent zero division.
+		if (clear_zero() == 1) {
+			continue;
+		}
+
 		// insert buf to code_fromat and store them in code_buf.
     sprintf(code_buf, code_format, buf);
 
@@ -125,7 +177,7 @@ int main(int argc, char *argv[]) {
     int ret = system("gcc /tmp/.code.c -o /tmp/.expr");
     if (ret != 0) continue;
 		
-		// opens a process, readable.
+		// open a process for input or output.
     fp = popen("/tmp/.expr", "r");
     assert(fp != NULL);
 
@@ -134,7 +186,7 @@ int main(int argc, char *argv[]) {
     ret = fscanf(fp, "%d", &result);
     pclose(fp);
 
-    printf("%u %s\n", result, buf);
+		printf("%u %s\n", result, buf);
   }
   return 0;
 }

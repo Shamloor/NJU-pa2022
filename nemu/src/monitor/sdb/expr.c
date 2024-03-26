@@ -35,7 +35,7 @@ static struct rule {
   /* TODO: Add more rules.
    * Pay attention to the precedence level of different rules.
    */
-	{"\\d+", TK_DINT},			// decimal integer	
+	{"[0-9]+", TK_DINT},			// decimal integer	
   {" +", TK_NOTYPE},    // spaces
   {"\\+", '+'},         // add
 	{"\\-", '-'},					// sub
@@ -73,7 +73,8 @@ typedef struct token {
   char str[32];
 } Token;
 
-static Token tokens[32] __attribute__((used)) = {};
+// Set size of tokens to 200, may cause segmentation fault, watch out.
+static Token tokens[200] __attribute__((used)) = {};
 static int nr_token __attribute__((used))  = 0;
 
 static bool make_token(char *e) {
@@ -90,8 +91,10 @@ static bool make_token(char *e) {
         char *substr_start = e + position;
         int substr_len = pmatch.rm_eo;
 
-        Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
-            i, rules[i].regex, position, substr_len, substr_len, substr_start);
+			
+				// Unknown reason for segmentation fault, use Log.
+        //Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
+        //    i, rules[i].regex, position, substr_len, substr_len, substr_start);
 
         position += substr_len;
 
@@ -108,96 +111,61 @@ static bool make_token(char *e) {
 					case TK_EQ:
 					case TK_LBR:
 					case TK_RBR:
-						tokens[i].type = rules[i].token_type;
+						tokens[nr_token].type = rules[i].token_type;
+						nr_token += 1;
 						break;
 					case TK_DINT:
-						tokens[i].type = rules[i].token_type;
-						strncpy(tokens[i].str, substr_start, 32);
+						tokens[nr_token].type = rules[i].token_type;
+						strncpy(tokens[nr_token].str, substr_start, substr_len);
+						nr_token += 1;
 						break;
         }
-				nr_token += 1;
         break;
 			} 
     }
 
     if (i == NR_REGEX) {
-      printf("no match at position %d\n%s\n%*.s^\n", position, e, position, "");
+      printf("no match at position %d\n%s\n%*.s^\n", 
+					position, e, position, "");
       return false;
     }
   }
 
-  return true;
-}
-
-
-word_t expr(char *e, bool *success) {
-  if (!make_token(e)) {
-    *success = false;
-    return 0;
-  }
-
-  /* TODO: Insert codes to evaluate the expression. */
-  TODO();
-
-  return 0;
-}
-
-static bool check_parentheses(int p, int q) {
-	if (tokens[p].type != TK_LBR || 
-			tokens[q].type != TK_RBR) {
-		return false;
-	}
-
-	int i = 0;
-	int check = 0;
-
-	for (i = p; p <= q; i ++) {
-		if (tokens[i].type == TK_LBR) {
-			check += 1;
-		} 
-		else if (tokens[i].type == TK_RBR) {
-			check -= 1;
-		}
-		
-		if ((check < 0) || (i == q && check != 0)) {
-			printf("The bracket format is wrong, please check.");
-			assert(0);
-			return false;
-		}
-	}
 	return true;
 }
 
-ststic char* change_to_negative(char *str1) {
-	char str2[32] = "-";
-	strcpy(str2 + 1, str1);
-	return str2;
-}
 
-// assuming pos type is '-',
-// check negtive number, when pos is 0, stop.
-// when there are '+' before last operator, change it.
-// both situations will change 
-static bool check_change_negative(int pos) {
-	// the start character
-	if (pos == 0) {
-		strcpy(tokens[pos + 1].str, 
-				change_to_negative(tokens[pos + 1].str));
+
+
+static bool check_parentheses(int p, int q) {
+
+	int i = 0;
+	int check = 0;
+	int max = 0;
+	if (tokens[p].type == TK_LBR && tokens[q].type == TK_RBR) {
+		for (i = p; i <= q; i ++) {
+			if (tokens[i].type == TK_LBR) {
+				check += 1;
+				if (check > max) max = check;
+			} 
+			else if (tokens[i].type == TK_RBR) {
+				check -= 1;
+			}
+		
+			if ((check < 0) || (i == q && check != 0)) {
+				Log("The bracket format is wrong, please check.");
+				assert(0);
+				return false;
+			}
+			
+			if (max != 0 && check == 0 && i != q) {
+				return false;
+			}
+		}
+
 		return true;
 	}
-	int lstype = tokens[pos - 1].type;
-	if (lstype == '+' || lstype == '-' || lstype == '*'
-		|| lstype == '/') {
-		// when sucess, just consider there are one digit after it.
-		strcpy(tokens[pos + 1].str, 
-				change_to_negative(tokens[pos + 1].str));
-		
-
-		return true;
-	} 
-	else if (lstype == TK_LBR) {
-		return check_change_negative(pos - 1);
-	} 
+	
 	return false;
 }
 
@@ -211,8 +179,9 @@ static int priop(int p, int q) {
 	for (int i = p; i <= q; i ++) {
 		// pre extract
 		int itype = tokens[i].type;
+		int ptype;
 		if (pr_pos != 0) {
-			int ptype = tokens[pr_pos];
+			ptype = tokens[pr_pos].type;
 		}
 
 		// for bracket
@@ -225,8 +194,7 @@ static int priop(int p, int q) {
 		
 
 		// if is operator type
-		else if ((itype == '+' || (itype == '-' 
-			&& !check_change_negative(i)) || 
+		else if ((itype == '+' || itype == '-' || 
 			itype == '*' || itype == '/') && check == 0) {
 			// initial assignment
 			if (pr_pos == 0) {
@@ -252,7 +220,7 @@ static int priop(int p, int q) {
 
 static int eval(int p, int q) {
 	if (p > q) {
-		assert(0);
+		Assert(0, "between %d and %d", p, q);
 	} 
 	else if (p == q) {
 		return atoi(tokens[p].str);
@@ -266,7 +234,7 @@ static int eval(int p, int q) {
 		int val2 = eval(op + 1, q);
 
 		// combination
-		swtich(tokens[op].type) {
+		switch(tokens[op].type) {
 			case '+': return val1 + val2;
 			case '-': return val1 - val2;
 			case '*': return val1 * val2;
@@ -274,4 +242,20 @@ static int eval(int p, int q) {
 			default: assert(0);
 		}
 	}
+}
+
+word_t expr(char *e, bool success) {
+	memset(tokens, 0, sizeof(tokens));
+
+	init_regex();
+
+  if (!make_token(e)) {
+    success = false;
+    return 0;
+  }
+	
+  /* TODO: Insert codes to evaluate the expression. */
+	word_t result = eval(0, nr_token - 1); 
+	printf("%u\n", result);
+  return result;
 }
