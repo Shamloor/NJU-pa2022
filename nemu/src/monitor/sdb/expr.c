@@ -19,31 +19,41 @@
  * Type 'man regex' for more information about POSIX regex functions.
  */
 #include <regex.h>
+#include <memory/paddr.h>
 
 enum {
-  TK_NOTYPE = 256, TK_EQ,
-	TK_DINT, TK_LBR, TK_RBR,
-  /* TODO: Add more token types */
-
+  TK_NOTYPE = 256, 
+	TK_DINT,
+	TK_HEX,
+	TK_REG,
+	TK_LBR, 
+	TK_RBR,
+	TK_EQ,
+	TK_NEQ,
+	TK_AND,
+	TK_DEREF,
 };
 
 static struct rule {
   const char *regex;
   int token_type;
 } rules[] = {
-
-  /* TODO: Add more rules.
-   * Pay attention to the precedence level of different rules.
-   */
+	// Precedence? Why?
+	// Because hex is more higher than dec.
+	
+	{"^0x[0-9a-fA-F]+$", TK_HEX}, // hexadecimal number
 	{"[0-9]+", TK_DINT},			// decimal integer	
+	{"^\\$", TK_REG},			// register name															
   {" +", TK_NOTYPE},    // spaces
+	{"\\(", TK_LBR},				// left bra
+	{"\\)", TK_RBR},				// right bra
   {"\\+", '+'},         // add
 	{"\\-", '-'},					// sub
 	{"\\*", '*'},					// mul
 	{"\\/", '/'},					//div
   {"==", TK_EQ},        // equal
-	{"\\(", TK_LBR},				// left bra
-	{"\\)", TK_RBR},				// right bra	
+	{"!=", TK_NEQ},				// not equal
+	{"&&", TK_AND},				// and
 	
 };
 
@@ -109,12 +119,15 @@ static bool make_token(char *e) {
 					case '*':
 					case '/':
 					case TK_EQ:
+					case TK_NEQ:
 					case TK_LBR:
 					case TK_RBR:
+					case TK_REG:
 						tokens[nr_token].type = rules[i].token_type;
 						nr_token += 1;
 						break;
 					case TK_DINT:
+					case TK_HEX:
 						tokens[nr_token].type = rules[i].token_type;
 						strncpy(tokens[nr_token].str, substr_start, substr_len);
 						nr_token += 1;
@@ -175,16 +188,14 @@ static int priop(int p, int q) {
 	// varuable representing primary position.
 	int pr_pos = 0;
 
-	// for loop searching
 	for (int i = p; i <= q; i ++) {
-		// pre extract
 		int itype = tokens[i].type;
+		// recording position
 		int ptype;
 		if (pr_pos != 0) {
 			ptype = tokens[pr_pos].type;
 		}
 
-		// for bracket
 		if (itype == TK_LBR) {
 			check += 1;
 		}
@@ -192,26 +203,42 @@ static int priop(int p, int q) {
 			check -= 1;
 		}
 		
-
 		// if is operator type
-		else if ((itype == '+' || itype == '-' || 
-			itype == '*' || itype == '/') && check == 0) {
-			// initial assignment
-			if (pr_pos == 0) {
-				pr_pos = i;
-			}
-			// compare ptype and itype
-			else {
-				// pre assignment
-				bool pcond1 = (ptype == '+' || ptype == '-');
-				bool pcond2 = (ptype == '*' || ptype == '/');
-				bool icond1 = (itype == '+' || itype == '-');
-				bool icond2 = (itype == '/' || itype == '*');
-				
-				if ((pcond1 && icond1) || (pcond2 && icond2) 
-						|| (pcond2 && icond1)) {
-					pr_pos = i;
-				}
+		else if (check == 0) {
+			switch (itype) {
+				case '+':
+				case '-':
+				case '*':
+				case '/':
+				case TK_EQ:
+				case TK_NEQ:
+				case TK_AND:
+					// initial assignment
+					if (pr_pos == 0) {
+						pr_pos = i;
+					}
+					// comparison
+					else {
+						// Operator precedence.
+						// */ > +- > ==!= > &&
+						bool pcond1 = (ptype == '*' || ptype == '/');
+						bool pcond2 = (ptype == '+' || ptype == '-');
+						bool pcond3 = (ptype == TK_EQ || ptype == TK_NEQ);
+						bool pcond4 = (ptype == TK_AND);
+
+						bool icond1 = (itype == '*' || itype == '/');
+						bool icond2 = (itype == '+' || itype == '-');
+						bool icond3 = (itype == TK_EQ || itype == TK_NEQ);
+						bool icond4 = (itype == TK_AND);
+
+						if ((pcond1 && (icond1 || icond2 || icond3 || icond4)) ||
+								(pcond2 && (icond2 || icond3 || icond4)) ||
+								(pcond3 && (icond3 || icond4)) ||
+								(pcond4 && (icond4))) {
+							pr_pos = i;
+						}
+					}
+					break;
 			}
 		}
 	}	
@@ -223,8 +250,20 @@ static int eval(int p, int q) {
 		Assert(0, "between %d and %d", p, q);
 	} 
 	else if (p == q) {
-		return atoi(tokens[p].str);
+		if (tokens[p].type == TK_DINT) {
+			return atoi(tokens[p].str);
+		} else if (tokens[p].type == TK_HEX) {
+			return (int)strtol(tokens[p].str, NULL, 0);
+		}
+		
 	} 
+	else if ((p == q - 1) && tokens[p].type == TK_DEREF) {
+		return paddr_read((word_t)strtol(tokens[q].str, NULL, 16), 4);
+	}
+	else if ((p == q - 1) && tokens[p].type == TK_REG) {
+		bool success = true;
+		return isa_reg_str2val(tokens[q].str, &success);
+	}
 	else if (check_parentheses(p, q)) {
 		return eval(p + 1, q - 1);
 	}
@@ -233,29 +272,44 @@ static int eval(int p, int q) {
 		int val1 = eval(p, op - 1);
 		int val2 = eval(op + 1, q);
 
-		// combination
 		switch(tokens[op].type) {
 			case '+': return val1 + val2;
 			case '-': return val1 - val2;
 			case '*': return val1 * val2;
 			case '/': return val1 / val2;
+			case TK_EQ: return val1 == val2;
+			case TK_NEQ: return val1 != val2;
+			case TK_AND: return val1 && val2;
+			//TODO : can add more rules.
 			default: assert(0);
 		}
 	}
+	return 0;
 }
 
-word_t expr(char *e, bool success) {
+word_t expr(char *e, bool *success) {
 	memset(tokens, 0, sizeof(tokens));
-
-	init_regex();
 
   if (!make_token(e)) {
     success = false;
     return 0;
   }
+
+	// Whether '*' is derefrence operator.
+	for (int i = 0; i < nr_token; i ++) {
+				if (tokens[i].type == '*' && (i == 0 || 
+					tokens[i - 1].type == '+' ||
+					tokens[i - 1].type == '-' ||
+					tokens[i - 1].type == '*' ||
+					tokens[i - 1].type == '/' ||
+					tokens[i - 1].type == TK_LBR ||
+					tokens[i - 1].type == TK_EQ ||
+					tokens[i - 1].type == TK_NEQ ||
+					tokens[i - 1].type == TK_AND)) {
+			tokens[i].type = TK_DEREF;
+		}
+	}
 	
-  /* TODO: Insert codes to evaluate the expression. */
 	word_t result = eval(0, nr_token - 1); 
-	printf("%u\n", result);
   return result;
 }

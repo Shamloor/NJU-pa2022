@@ -18,12 +18,17 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <stdlib.h>
+#include <memory/paddr.h>
 #include "sdb.h"
 
 static int is_batch_mode = false;
 
 void init_regex();
 void init_wp_pool();
+void display_wp();
+void set_expre(char *expre);
+void new_wp();
+void free_wp(int no);
 
 /* We use the `readline' library to provide more flexibility to read from stdin. */
 static char* rl_gets() {
@@ -68,17 +73,62 @@ static int cmd_info(char *args) {
 	if(args) {
 		if (!strcmp(args, "r")) {
 			isa_reg_display();
-			return 0;
+		} 
+		else if (!strcmp(args, "w")) {
+			display_wp();	
+		} else {
+			printf("Please enter w/r arguments.\n");
 		}
-		printf("Not finished.");
-		return 0;
+	} else {
+		printf("Please enter arguments.\n");
+	}
+
+	return 0;
+}
+
+static int cmd_x(char *args) {
+	// split string
+	char *expression = strchr(args, ' ');
+	
+	int times;
+	word_t addr;
+	bool success = true;
+
+	if (expression == NULL) {
+		addr = expr(args, &success);
+		times = 1;
+	} 
+	else {
+		addr = expr(expression + 1, &success);
+		times = atoi(args);
+	} 
+
+	// read mem
+	for (int i = 0; i < times; i ++) {
+		word_t mem = paddr_read(addr, 4);
+		printf("0x%08x:		0x%08x\n", addr, mem);
+		addr += 4;
 	}
 	return 0;
 }
 
 static int cmd_p(char *args) {
-	init_regex();
+	bool success = true;
+	word_t result = expr(args, &success);
+	printf("%u\n", result);
 	return 0;	
+}
+
+static int cmd_w(char *args) {
+	new_wp();
+	set_expre(args);
+	return 0;
+}
+
+static int cmd_d(char *args) {
+	int number = atoi(args);
+	free_wp(number);
+	return 0;
 }
 
 static int cmd_help(char *args);
@@ -93,7 +143,10 @@ static struct {
   { "q", "Exit NEMU", cmd_q },
 	{ "si", "Single step excution for N times", cmd_si},
   { "info", "Print program status", cmd_info}, 
+	{ "x", "Scan memory", cmd_x },
 	{ "p", "Calculate the value of EXPR", cmd_p },
+	{ "w", "Set a watchpoint", cmd_w },
+	{ "d", "Delete a watchpoint", cmd_d },
 };
 
 #define NR_CMD ARRLEN(cmd_table)

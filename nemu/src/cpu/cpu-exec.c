@@ -31,6 +31,7 @@ static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
 
 void device_update();
+bool compare_res();
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
@@ -38,6 +39,13 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
+
+// Don't know how to set macro in Kconfig.
+// #if CONFIG_WATCHPOINT == y
+	if (!compare_res()) {
+		nemu_state.state = NEMU_STOP;
+	}
+// #endif
 }
 
 static void exec_once(Decode *s, vaddr_t pc) {
@@ -122,7 +130,9 @@ void cpu_exec(uint64_t n) {
            (nemu_state.halt_ret == 0 ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN) :
             ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
           nemu_state.halt_pc);
-      // fall through
+		
+		case NEMU_STOP: return;
+
     case NEMU_QUIT: statistic();
   }
 }

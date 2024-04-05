@@ -24,15 +24,21 @@ const char *regs[] = {
 };
 
 void isa_reg_display() {
-	int count = sizeof(regs) / sizeof(regs[0]);
-	for (int i = 0; i < count; i ++) {
-		printf("%s ", regs[i]);
-		if ((i + 1) % 8 == 0) {
-			printf("\n");
-		}
+	int length = ARRLEN(regs);
+	for (int i = 0; i < length; i ++) {
+		printf("%s			%x\n", regs[i], cpu.gpr[i]);
 	}
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
-  return 0;
+	int length = ARRLEN(regs);
+	for (int i = 0; i < length; i ++) {
+		if (!strcmp(regs[i], s)) {
+			*success = true;
+			return cpu.gpr[i];
+		}
+	}
+	success = false;
+	printf("Cannot find register named %s.\n", s);
+	return 0;
 }
