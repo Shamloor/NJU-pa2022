@@ -115,8 +115,12 @@ static int cmd_x(char *args) {
 static int cmd_p(char *args) {
 	bool success = true;
 	word_t result = expr(args, &success);
-	printf("%u\n", result);
-	return 0;	
+	if (args[0] == '$') {
+		printf("%x\n", result);
+	} else {
+		printf("%u\n", result);
+	}
+		return 0;	
 }
 
 static int cmd_w(char *args) {

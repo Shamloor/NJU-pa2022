@@ -42,7 +42,7 @@ static struct rule {
 	// Because hex is more higher than dec.
 	
 	{"^0x[0-9a-fA-F]+$", TK_HEX}, // hexadecimal number
-	{"[0-9]+", TK_DINT},			// decimal integer	
+	{"[0-9a-z]+", TK_DINT},			// decimal integer	
 	{"^\\$", TK_REG},			// register name															
   {" +", TK_NOTYPE},    // spaces
 	{"\\(", TK_LBR},				// left bra
