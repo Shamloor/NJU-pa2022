@@ -115,8 +115,8 @@ static int cmd_x(char *args) {
 static int cmd_p(char *args) {
 	bool success = true;
 	word_t result = expr(args, &success);
-	if (args[0] == '$') {
-		printf("%x\n", result);
+	if (args[0] == '$' || args[0] == '*') {
+		printf("0x%08x\n", result);
 	} else {
 		printf("%u\n", result);
 	}

@@ -100,7 +100,7 @@ bool compare_res() {
 	for (WP *i = head; i != NULL; i = i->next) {
 		word_t res = expr(i->express, &success);
 		if (i->res != res) {
-			printf("Watchpoint %d has been triggered. \nThe value of %s : %x turned to %x\n", i->NO, i->express, i->res, res);
+			printf("Watchpoint %d has been triggered. \nThe value of %s : \033[34m0x%08x\033[0m turned to \033[34m0x%08x\033[0m in\n", i->NO, i->express, i->res, res);
 			i->res = res;
 			return false;
 		}

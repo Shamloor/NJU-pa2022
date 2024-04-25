@@ -43,6 +43,7 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 // Don't know how to set macro in Kconfig.
 // #if CONFIG_WATCHPOINT == y
 	if (!compare_res()) {
+		puts(_this->logbuf);
 		nemu_state.state = NEMU_STOP;
 	}
 // #endif
