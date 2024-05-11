@@ -53,6 +53,7 @@ config MODE_SYSTEM
   bool "System mode"
   help
     Support full-system functionality, including privileged instructions, MMU and devices.
+
 endchoice
 
 choice
@@ -149,7 +150,6 @@ config ITRACE_COND
   string "Only trace instructions when the condition is true"
   default "true"
 
-
 config DIFFTEST
   depends on TARGET_NATIVE_ELF
   bool "Enable differential testing"
@@ -158,6 +158,13 @@ config DIFFTEST
     Enable differential testing with a reference design.
     Note that this will significantly reduce the performance of NEMU.
 
+config WATCHPOINT
+	bool "Set watchpoint"
+	default y
+
+config BATCH_MODE
+	bool "Set batch mode"
+	default n
 
 choice
   prompt "Reference design"
