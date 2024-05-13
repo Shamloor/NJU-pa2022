@@ -24,18 +24,65 @@
  * You can modify this value as you want.
  */
 #define MAX_INST_TO_PRINT 10
+#define MAX_INST_LENGTH 40
 
 CPU_state cpu = {};
 uint64_t g_nr_guest_inst = 0;
 static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
 
+// ring buffer and signal
+static char rbuffer[MAX_INST_TO_PRINT][MAX_INST_LENGTH];
+int newest = 0; bool full = 0;
+
 void device_update();
 bool compare_res();
 
+static void set_ring_buffer(Decode *_this) {
+	if (!full) {
+		strcpy(rbuffer[newest], _this->logbuf);
+	} 
+	else {
+		strcpy(rbuffer[(newest+ 9) % 10] , _this->logbuf);
+	}
+	newest = (newest + 2) % 10 - 1;
+	
+	if (newest == 0) {
+		full = true;
+	}
+}
+
+void print_ring_buffer() {
+	if (full) {
+		for (int i = 0; i < MAX_INST_TO_PRINT; i ++) {
+			if ((newest + i) % 10 != (newest + 9) % 10) {
+				printf("     ");
+			}
+			else {
+				printf("---> ");
+			}
+			printf("%s\n", rbuffer[(newest + i) % 10]);
+		}
+	} else {
+		for (int i = 0; i < newest; i ++) {
+			if (i != newest - 1) {
+				printf("     ");
+			} else {
+				printf("---> ");
+			}
+			printf("%s\n", rbuffer[i]);
+		}
+	}
+	
+}
+
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
-  if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
+  if (ITRACE_COND) { 
+		log_write("%s\n", _this->logbuf); 
+		set_ring_buffer(_this);
+	}
+	
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
