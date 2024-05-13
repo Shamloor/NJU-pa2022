@@ -24,7 +24,7 @@
  * You can modify this value as you want.
  */
 #define MAX_INST_TO_PRINT 10
-#define MAX_INST_LENGTH 40
+#define MAX_INST_LENGTH 50
 
 CPU_state cpu = {};
 uint64_t g_nr_guest_inst = 0;
@@ -39,14 +39,8 @@ void device_update();
 bool compare_res();
 
 static void set_ring_buffer(Decode *_this) {
-	if (!full) {
-		strcpy(rbuffer[newest], _this->logbuf);
-	} 
-	else {
-		strcpy(rbuffer[(newest+ 9) % 10] , _this->logbuf);
-	}
-	newest = (newest + 2) % 10 - 1;
-	
+	strcpy(rbuffer[newest], _this->logbuf);
+	newest = (newest + 1) % MAX_INST_TO_PRINT;
 	if (newest == 0) {
 		full = true;
 	}
@@ -55,34 +49,37 @@ static void set_ring_buffer(Decode *_this) {
 void print_ring_buffer() {
 	if (full) {
 		for (int i = 0; i < MAX_INST_TO_PRINT; i ++) {
-			if ((newest + i) % 10 != (newest + 9) % 10) {
-				printf("     ");
+			char *prompt;
+			if ((newest + i) % MAX_INST_TO_PRINT != 
+					(newest + MAX_INST_TO_PRINT - 1) % MAX_INST_TO_PRINT) {
+				prompt = "      ";
 			}
 			else {
-				printf("---> ");
+				prompt = "----> ";
 			}
-			printf("%s\n", rbuffer[(newest + i) % 10]);
+			printf("%s%s\n", prompt, rbuffer[(newest + i) % 10]);
 		}
 	} else {
 		for (int i = 0; i < newest; i ++) {
+			char *prompt;
 			if (i != newest - 1) {
-				printf("     ");
+				prompt = "      ";
 			} else {
-				printf("---> ");
+				prompt = "----> ";
 			}
-			printf("%s\n", rbuffer[i]);
+			printf("%s%s\n", prompt, rbuffer[i]);
 		}
 	}
 	
 }
-
+ 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) { 
-		log_write("%s\n", _this->logbuf); 
-		set_ring_buffer(_this);
-	}
-	
+  	log_write("%s\n", _this->logbuf); 
+  	set_ring_buffer(_this);
+  }
+  
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
@@ -153,7 +150,8 @@ void assert_fail_msg() {
 
 /* Simulate how the CPU works. */
 void cpu_exec(uint64_t n) {
-  g_print_step = (n < MAX_INST_TO_PRINT);
+  g_print_step = 0;
+	//g_print_step = (n < MAX_INST_TO_PRINT);
   switch (nemu_state.state) {
     case NEMU_END: case NEMU_ABORT:
       printf("Program execution has ended. To restart the program, exit NEMU and run again.\n");
