@@ -158,6 +158,10 @@ config DIFFTEST
     Enable differential testing with a reference design.
     Note that this will significantly reduce the performance of NEMU.
 
+config MTRACE
+	bool "Show every memory visit trace."
+	default y
+
 config WATCHPOINT
 	bool "Set watchpoint"
 	default y
